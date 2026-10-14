@@ -7,6 +7,7 @@ import { detectLanguage } from "@/lib/language";
 import { buildPrompt } from "@/lib/prompt";
 import { createTools, type TurnContext } from "@/lib/tools";
 import { guardReply } from "@/lib/guards";
+import { salvagePlainText } from "@/lib/salvage";
 import type { Profile } from "@/lib/types";
 
 const ChatRequestSchema = z.object({
@@ -31,6 +32,8 @@ const MODEL_LIST = (
   .split(",")
   .map((m) => m.trim())
   .filter(Boolean);
+
+const ATTEMPT_TIMEOUT_MS = 20_000;
 
 function availableModels() {
   return MODEL_LIST.flatMap((entry) => {
@@ -88,14 +91,23 @@ export async function POST(req: Request) {
         system: buildPrompt(attempt.profile),
         messages: recent,
         tools: createTools(attempt),
-        toolChoice: "required", // no plain-text answers: every reply goes through sendReply
+        toolChoice: "auto", // "required" made providers reject the whole turn when the model slipped
         stopWhen: [hasToolCall("sendReply"), stepCountIs(6)],
         maxRetries: 1, // fail fast and move to the next model
+        abortSignal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
       });
       const calls = result.steps.flatMap((s) =>
         s.toolCalls.map((c) => c.toolName),
       );
-      console.log(`[chat] ${entry}: ${calls.join(" → ")}`);
+      console.log(`[chat] ${entry}: ${calls.join(" → ") || "(no tools)"}`);
+
+      // The model answered in plain text instead of calling sendReply:
+      // recover what we can. It is still untrusted and goes through every guard.
+      if (!attempt.reply && result.text.trim()) {
+        attempt.reply = salvagePlainText(result.text);
+        console.log(`[chat] ${entry}: plain-text reply salvaged`);
+      }
+
       if (attempt.reply) {
         ctx = attempt; // success: keep this attempt's results
         break;
