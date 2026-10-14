@@ -1,5 +1,6 @@
 import { catalog, getById } from "./catalog";
 import { arabicRatio, matchesLanguage } from "./language";
+import { stripLinks, leaksPrompt } from "./security";
 import {
   fallbackReply,
   missingFactReply,
@@ -195,9 +196,13 @@ export function guardReply(
   ctx: { profile: Profile; allowedIds: ReadonlySet<string> },
 ): ChatResponse {
   const lang = ctx.profile.language;
-  let text = typeof raw?.text === "string" ? cleanText(raw.text) : "";
+  let text =
+    typeof raw?.text === "string" ? cleanText(stripLinks(raw.text)) : "";
 
   if (!text || !matchesLanguage(text, lang)) return fallbackReply(ctx.profile);
+
+  // A reply quoting our instructions or tool names is leaking internals.
+  if (leaksPrompt(text)) return fallbackReply(ctx.profile);
 
   // One question per message.
   text = keepFirstQuestion(text);
@@ -229,7 +234,6 @@ export function guardReply(
   }
 
   // The text names an institution that isn't in the catalog: don't show it.
-  // Keep validated cards with neutral text, or explain we only use the catalog.
   if (mentionsUnknownInstitution(text)) {
     if (recommended.length === 0) return catalogOnlyReply(ctx.profile);
     text = CARDS_INTRO[lang];
