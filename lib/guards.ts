@@ -1,6 +1,12 @@
-import { getById } from "./catalog";
-import { matchesLanguage } from "./language";
-import { fallbackReply, missingFactReply, defaultChoices } from "./fallback";
+import { catalog, getById } from "./catalog";
+import { arabicRatio, matchesLanguage } from "./language";
+import {
+  fallbackReply,
+  missingFactReply,
+  defaultChoices,
+  catalogOnlyReply,
+  CARDS_INTRO,
+} from "./fallback";
 import type {
   ChatResponse,
   Language,
@@ -38,6 +44,15 @@ export function sanitizeChoices(input: unknown): string[] {
     if (result.length === MAX_CHOICES) break;
   }
   return result;
+}
+
+// Buttons must match the reply language. Buttons without letters ("5000") always pass.
+export function choicesInLanguage(choices: string[], lang: Language): string[] {
+  return choices.filter((c) => {
+    if (!/\p{L}/u.test(c)) return true;
+    const ratio = arabicRatio(c);
+    return lang === "ar" ? ratio > 0 : ratio < 0.5;
+  });
 }
 
 // ---------- Recommendations ----------
@@ -90,16 +105,83 @@ export function toCard(p: Program, lang: Language): ProgrammeCard {
 // ---------- Text ----------
 
 // Remove internal programme codes (students should never see "P08"),
-// tidy spacing, and cap the length.
+// markdown the UI can't render, tidy spacing, and cap the length.
 export function cleanText(text: string): string {
   const cleaned = text
     .replace(/\bP\d{2}\b/gi, "")
-    .replace(/\*\*|__|`/g, "") // markdown bold / code markers: the UI shows plain text
+    .replace(/\*\*|__|`/g, "") // markdown bold / code markers
     .replace(/^#{1,6}\s+/gm, "") // markdown headings
     .replace(/[ \t]+/g, " ")
     .replace(/\s+([,.!?،؟])/g, "$1")
     .trim();
   return [...cleaned].slice(0, MAX_TEXT_LENGTH).join("");
+}
+
+// One question per message: if the text asks more than one, keep it up to the end of the first.
+export function keepFirstQuestion(text: string): string {
+  const first = text.match(/^[\s\S]*?[?؟]/);
+  if (!first) return text;
+  const rest = text.slice(first[0].length);
+  return /[?؟]/.test(rest) ? first[0].trim() : text;
+}
+
+// Never name an institution that isn't in the catalog.
+const FAMOUS =
+  /\b(harvard|mit|stanford|oxford|cambridge|yale|princeton|berkeley)\b|هارفارد|ستانفورد|أكسفورد|اكسفورد|كامبريدج|برينستون/i;
+const INSTITUTION_WORDS =
+  "University|Institute|College|School|Academy|Centre|Center|Polytechnic";
+const NAMED_BEFORE = new RegExp(
+  `\\b(?:[A-Z][\\w'&.-]*\\s+){1,4}(?:${INSTITUTION_WORDS})\\b(?:\\s+of\\s+(?:[A-Z][\\w'&.-]*\\s?){1,3})?`,
+  "g",
+);
+const NAMED_AFTER = new RegExp(
+  `\\b(?:${INSTITUTION_WORDS})\\s+of\\s+(?:[A-Z][\\w'&.-]*\\s?){1,3}`,
+  "g",
+);
+const IS_INSTITUTION_WORD = new RegExp(`^(?:${INSTITUTION_WORDS}|of)$`, "i");
+const GENERIC = new Set([
+  "the",
+  "a",
+  "an",
+  "our",
+  "your",
+  "this",
+  "that",
+  "these",
+  "those",
+  "any",
+  "each",
+  "every",
+  "summer",
+  "high",
+  "local",
+  "top",
+  "great",
+  "good",
+  "best",
+]);
+const KNOWN_NAMES = catalog
+  .flatMap((p) => [p.host, p.name_en])
+  .map((s) => s.toLowerCase());
+
+export function mentionsUnknownInstitution(text: string): boolean {
+  if (FAMOUS.test(text)) return true;
+  const found = [
+    ...text.matchAll(NAMED_BEFORE),
+    ...text.matchAll(NAMED_AFTER),
+  ].map((m) => m[0].replace(/[.,!?;:]+$/, "").trim());
+  return found.some((name) => {
+    const lower = name.toLowerCase();
+    if (KNOWN_NAMES.some((k) => lower.includes(k) || k.includes(lower)))
+      return false;
+    // "A Summer School" is generic, not a name: ignore it.
+    const specific = name
+      .split(/\s+/)
+      .filter(
+        (w) => !GENERIC.has(w.toLowerCase()) && !IS_INSTITUTION_WORD.test(w),
+      );
+    return specific.length > 0;
+  });
 }
 
 // ---------- The whole reply ----------
@@ -113,9 +195,12 @@ export function guardReply(
   ctx: { profile: Profile; allowedIds: ReadonlySet<string> },
 ): ChatResponse {
   const lang = ctx.profile.language;
-  const text = typeof raw?.text === "string" ? cleanText(raw.text) : "";
+  let text = typeof raw?.text === "string" ? cleanText(raw.text) : "";
 
   if (!text || !matchesLanguage(text, lang)) return fallbackReply(ctx.profile);
+
+  // One question per message.
+  text = keepFirstQuestion(text);
 
   let recommended = filterRecommendations(
     raw?.recommendedIds,
@@ -135,7 +220,6 @@ export function guardReply(
 
   // The model searched this turn but forgot to attach any programmes:
   // attach the best ones it actually found (real, and searched this turn).
-  // filterRecommendations still requires a complete profile.
   if (!triedToRecommend && ctx.allowedIds.size > 0) {
     recommended = filterRecommendations(
       [...ctx.allowedIds],
@@ -144,8 +228,15 @@ export function guardReply(
     );
   }
 
-  // No buttons from the model while facts are still missing: offer answers for the next one.
-  let choices = sanitizeChoices(raw?.choices);
+  // The text names an institution that isn't in the catalog: don't show it.
+  // Keep validated cards with neutral text, or explain we only use the catalog.
+  if (mentionsUnknownInstitution(text)) {
+    if (recommended.length === 0) return catalogOnlyReply(ctx.profile);
+    text = CARDS_INTRO[lang];
+  }
+
+  // Buttons: limits, right language, and defaults while facts are still missing.
+  let choices = choicesInLanguage(sanitizeChoices(raw?.choices), lang);
   if (choices.length === 0 && !isProfileComplete(ctx.profile)) {
     choices = defaultChoices(ctx.profile);
   }

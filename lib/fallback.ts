@@ -39,6 +39,17 @@ const CHOICES: Record<Fact, Record<Language, string[]>> = {
   },
 };
 
+const CATALOG_ONLY: Record<Language, string> = {
+  en: "I can only recommend programmes from our catalog.",
+  ar: "يمكنني فقط ترشيح برامج من الكتالوج الخاص بنا.",
+};
+
+// Neutral text used when the model's text can't be trusted but its (validated) cards can.
+export const CARDS_INTRO: Record<Language, string> = {
+  en: "Here are the programmes from our catalog that fit you best.",
+  ar: "إليك البرامج من الكتالوج الأنسب لك.",
+};
+
 // A safe reply that always satisfies every rule.
 // Used when the model fails, breaks, or answers in the wrong language.
 export function fallbackReply(profile: Profile): ChatResponse {
@@ -74,6 +85,21 @@ export function missingFactReply(profile: Profile): ChatResponse {
     language: profile.language,
     text: QUESTIONS[fact][profile.language],
     choices: [...CHOICES[fact][profile.language]],
+    programmes: [],
+    profile,
+  };
+}
+
+// Used when the model's text names an institution that isn't in the catalog.
+export function catalogOnlyReply(profile: Profile): ChatResponse {
+  const lang = profile.language;
+  const fact = nextFact(profile);
+  return {
+    language: lang,
+    text: fact
+      ? `${CATALOG_ONLY[lang]} ${QUESTIONS[fact][lang]}`
+      : CATALOG_ONLY[lang],
+    choices: fact ? [...CHOICES[fact][lang]] : [],
     programmes: [],
     profile,
   };
