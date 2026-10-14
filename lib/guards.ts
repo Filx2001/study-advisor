@@ -1,6 +1,6 @@
 import { getById } from "./catalog";
 import { matchesLanguage } from "./language";
-import { fallbackReply } from "./fallback";
+import { fallbackReply, missingFactReply, defaultChoices } from "./fallback";
 import type {
   ChatResponse,
   Language,
@@ -115,15 +115,33 @@ export function guardReply(
 
   if (!text || !matchesLanguage(text, lang)) return fallbackReply(ctx.profile);
 
+  const recommended = filterRecommendations(
+    raw?.recommendedIds,
+    ctx.allowedIds,
+    ctx.profile,
+  );
+
+  // The model tried to recommend, but nothing survived the checks: its text would
+  // promise programmes the student can't see. Ask for what's missing instead, or fall back.
+  const ids = raw?.recommendedIds;
+  const triedToRecommend = Array.isArray(ids) && ids.length > 0;
+  if (triedToRecommend && recommended.length === 0) {
+    return isProfileComplete(ctx.profile)
+      ? fallbackReply(ctx.profile)
+      : missingFactReply(ctx.profile);
+  }
+
+  // No buttons from the model while facts are still missing: offer answers for the next one.
+  let choices = sanitizeChoices(raw?.choices);
+  if (choices.length === 0 && !isProfileComplete(ctx.profile)) {
+    choices = defaultChoices(ctx.profile);
+  }
+
   return {
     language: lang,
     text,
-    choices: sanitizeChoices(raw?.choices),
-    programmes: filterRecommendations(
-      raw?.recommendedIds,
-      ctx.allowedIds,
-      ctx.profile,
-    ).map((p) => toCard(p, lang)),
+    choices,
+    programmes: recommended.map((p) => toCard(p, lang)),
     profile: ctx.profile,
   };
 }
