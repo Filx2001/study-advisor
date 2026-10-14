@@ -94,6 +94,8 @@ export function toCard(p: Program, lang: Language): ProgrammeCard {
 export function cleanText(text: string): string {
   const cleaned = text
     .replace(/\bP\d{2}\b/gi, "")
+    .replace(/\*\*|__|`/g, "") // markdown bold / code markers: the UI shows plain text
+    .replace(/^#{1,6}\s+/gm, "") // markdown headings
     .replace(/[ \t]+/g, " ")
     .replace(/\s+([,.!?،؟])/g, "$1")
     .trim();
