@@ -13,6 +13,22 @@ describe("salvagePlainText", () => {
     });
   });
 
+  it("recovers choices written as a JSON array after 'Choices:'", () => {
+    const raw =
+      'Do you have an IELTS score?Choices: ["No IELTS","Score 6.0"],"recommendedIds":[]';
+    expect(salvagePlainText(raw)).toEqual({
+      text: "Do you have an IELTS score?",
+      choices: ["No IELTS", "Score 6.0"],
+      recommendedIds: [],
+    });
+  });
+
+  it("removes text the model repeated twice", () => {
+    const raw =
+      'What is your budget?What is your budget?Choices: ["Under 5,000 QAR"]';
+    expect(salvagePlainText(raw)?.text).toBe("What is your budget?");
+  });
+
   it("recovers choices written as a bullet list", () => {
     const raw =
       "What is your budget?\n\nChoices:\n- Under 5,000 QAR\n- No limit";

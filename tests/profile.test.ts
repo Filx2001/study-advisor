@@ -51,6 +51,21 @@ describe("applyFact", () => {
     const r = applyFact(empty, { interest: "Medicine", currency: "qar" });
     expect(r.profile).toMatchObject({ interest: "medicine", currency: "QAR" });
   });
+
+  it("saves 'no limit' as a budget and assumes QAR", () => {
+    const r = applyFact(empty, { budget: "no limit" });
+    expect(r.profile).toMatchObject({ budget: "none", currency: "QAR" });
+  });
+
+  it("understands budgets written as text", () => {
+    expect(applyFact(empty, { budget: "5k" }).profile.budget).toBe(5000);
+    expect(applyFact(empty, { budget: "5,000 QAR" }).profile.budget).toBe(5000);
+  });
+
+  it("understands IELTS written as text", () => {
+    expect(applyFact(empty, { ielts: "6.5" }).profile.ielts).toBe(6.5);
+    expect(applyFact(empty, { ielts: "none" }).profile.ielts).toBe("none");
+  });
 });
 
 describe("missingFacts", () => {

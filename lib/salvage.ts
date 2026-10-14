@@ -23,7 +23,24 @@ export function salvagePlainText(raw: string): RawReply {
     }
   }
 
-  // 2. A "Choices:" header followed by a bullet list.
+  // 2. "Choices:" followed by a JSON array on the same line, e.g.  Choices: ["Yes", "No"]
+  const inline = text.match(
+    /(choices|buttons|options|الخيارات|خيارات)\s*:\s*(\[[^\]]*\])/i,
+  );
+  if (inline && inline.index !== undefined) {
+    try {
+      const choices = JSON.parse(inline[2]);
+      return {
+        text: removeRepeat(text.slice(0, inline.index)),
+        choices,
+        recommendedIds: [],
+      };
+    } catch {
+      // Not a valid array: try the next strategy.
+    }
+  }
+
+  // 3. A "Choices:" header line followed by a bullet list.
   const lines = text.split(/\r?\n/);
   const header = lines.findIndex((l) =>
     /^\s*(choices|buttons|options|الخيارات|خيارات)\s*:?\s*$/i.test(l),
@@ -34,12 +51,19 @@ export function salvagePlainText(raw: string): RawReply {
       .map((l) => l.match(/^\s*[-*•]\s+(.+)$/)?.[1]?.trim())
       .filter((c): c is string => Boolean(c));
     return {
-      text: lines.slice(0, header).join("\n").trim(),
+      text: removeRepeat(lines.slice(0, header).join("\n")),
       choices,
       recommendedIds: [],
     };
   }
 
-  // 3. Just text.
-  return { text, choices: [], recommendedIds: [] };
+  // 4. Just text.
+  return { text: removeRepeat(text), choices: [], recommendedIds: [] };
+}
+
+// Models sometimes write the same text twice in a row; keep one copy.
+export function removeRepeat(text: string): string {
+  const t = text.trim();
+  const match = t.match(/^([\s\S]+?)\s*\1$/);
+  return match ? match[1].trim() : t;
 }

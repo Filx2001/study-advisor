@@ -37,11 +37,12 @@ export const ProgramSchema = z.object({
 });
 
 export const CatalogSchema = z.array(ProgramSchema);
+
 // The profile is sent by the browser, so it is untrusted: validate it.
 export const ProfileSchema = z.object({
   language: z.enum(["ar", "en"]).default("en"),
   interest: FieldSchema.optional(),
-  budget: z.number().positive().optional(),
+  budget: z.union([z.number().positive(), z.literal("none")]).optional(),
   currency: CurrencySchema.optional(),
   ielts: z.union([z.number().min(0).max(9), z.literal("none")]).optional(),
   wantsScholarship: z.boolean().optional(),

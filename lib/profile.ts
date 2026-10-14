@@ -6,13 +6,37 @@ import type { Profile } from "./types";
 // message for the model, instead of crashing the whole tool call.
 export const FactsSchema = z.object({
   interest: z.string().optional(),
-  budget: z.number().optional(),
+  budget: z.union([z.number(), z.string()]).optional(), // 5000, "5k", "no limit"
   currency: z.string().optional(),
-  ielts: z.number().optional(),
+  ielts: z.union([z.number(), z.string()]).optional(), // 6.5, "6.5", "none"
   noIelts: z.boolean().optional(), // no IELTS / weak English
   wantsScholarship: z.boolean().optional(),
 });
 export type Facts = z.infer<typeof FactsSchema>;
+
+// "5000", "5,000 QAR", "5k" → 5000; "no limit" → "none"; nonsense → undefined
+export function parseBudget(
+  value: number | string,
+): number | "none" | undefined {
+  if (typeof value === "number") return value;
+  const v = value.trim().toLowerCase();
+  if (/^(none|no limit|unlimited|no budget|any)$/.test(v)) return "none";
+  const k = v.match(/^([\d.,\s]+)\s*k$/);
+  const n = Number.parseFloat((k ? k[1] : v).replace(/[,\s]/g, ""));
+  if (Number.isNaN(n)) return undefined;
+  return k ? n * 1000 : n;
+}
+
+// 6.5, "6.5", "IELTS 6.5" → 6.5; "none" / "no" → "none"; nonsense → undefined
+export function parseIelts(
+  value: number | string,
+): number | "none" | undefined {
+  if (typeof value === "number") return value;
+  const v = value.trim().toLowerCase();
+  if (/^(none|no|no ielts|without)$/.test(v)) return "none";
+  const n = Number.parseFloat(v.replace(/^ielts\s*/, ""));
+  return Number.isNaN(n) ? undefined : n;
+}
 
 // Validate facts before saving. Returns a new profile (never mutates),
 // plus what was saved and what was rejected, so the model can be told.
@@ -35,15 +59,23 @@ export function applyFact(profile: Profile, facts: Facts) {
   }
 
   if (facts.budget !== undefined) {
-    if (
-      Number.isFinite(facts.budget) &&
-      facts.budget > 0 &&
-      facts.budget <= 1_000_000
+    const budget = parseBudget(facts.budget);
+    if (budget === "none") {
+      next.budget = "none";
+      if (next.currency === undefined) next.currency = "QAR"; // currency doesn't matter without a limit
+      saved.push("budget");
+    } else if (
+      budget !== undefined &&
+      Number.isFinite(budget) &&
+      budget > 0 &&
+      budget <= 1_000_000
     ) {
-      next.budget = facts.budget;
+      next.budget = budget;
       saved.push("budget");
     } else {
-      rejected.push("budget: must be a positive amount");
+      rejected.push(
+        `budget: "${facts.budget}" is not a positive amount. Use a number, or "none" for no limit.`,
+      );
     }
   }
 
@@ -61,19 +93,27 @@ export function applyFact(profile: Profile, facts: Facts) {
     }
   }
 
-  if (facts.noIelts) {
+  const ielts = facts.noIelts
+    ? "none"
+    : facts.ielts !== undefined
+      ? parseIelts(facts.ielts)
+      : undefined;
+  if (ielts === "none") {
     next.ielts = "none";
     saved.push("ielts");
   } else if (facts.ielts !== undefined) {
     if (
-      facts.ielts >= 0 &&
-      facts.ielts <= 9 &&
-      Number.isInteger(facts.ielts * 2)
+      ielts !== undefined &&
+      ielts >= 0 &&
+      ielts <= 9 &&
+      Number.isInteger(ielts * 2)
     ) {
-      next.ielts = facts.ielts;
+      next.ielts = ielts;
       saved.push("ielts");
     } else {
-      rejected.push("ielts: must be between 0 and 9 in steps of 0.5");
+      rejected.push(
+        `ielts: "${facts.ielts}" must be between 0 and 9 in steps of 0.5, or "none".`,
+      );
     }
   }
 

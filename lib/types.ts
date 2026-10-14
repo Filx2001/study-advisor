@@ -8,7 +8,7 @@ export type Language = "ar" | "en";
 
 export type Profile = {
   interest?: Field;
-  budget?: number;
+  budget?: number | "none"; // "none" = no budget limit
   currency?: Currency;
   ielts?: number | "none"; // "none" = no IELTS / weak English
   wantsScholarship?: boolean;
