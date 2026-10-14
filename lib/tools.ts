@@ -1,9 +1,14 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { FactsSchema, applyFact, missingFacts } from "./profile";
-import { searchCatalog, priceInQAR } from "./search";
+import {
+  searchCatalog,
+  closestMatches,
+  priceInQAR,
+  type SearchFilters,
+} from "./search";
 import { FieldSchema, CurrencySchema } from "./schema";
-import type { Currency, Field, Profile } from "./types";
+import type { Currency, Field, Profile, Program } from "./types";
 import type { RawReply } from "./guards";
 
 // Everything one request needs; tools write into it, guards read from it.
@@ -35,6 +40,23 @@ const ReplyInputSchema = z.object({
 });
 
 export function createTools(ctx: TurnContext) {
+  const summary = (p: Program) => {
+    const lang = ctx.profile.language;
+    return {
+      id: p.id,
+      name: lang === "ar" ? p.name_ar : p.name_en,
+      field: p.field,
+      host: p.host,
+      country: p.country,
+      weeks: p.weeks,
+      fee: `${p.fee} ${p.currency}`,
+      approxPriceQAR: priceInQAR(p),
+      teachingLanguage: p.teaching_language,
+      minIelts: p.min_ielts,
+      scholarship: p.scholarship,
+    };
+  };
+
   return {
     saveFact: tool({
       description:
@@ -56,7 +78,8 @@ export function createTools(ctx: TurnContext) {
     searchCatalog: tool({
       description:
         "Search the official programme catalog — the ONLY source of programmes. " +
-        "Only programmes returned here may be recommended. Budgets are compared after currency conversion.",
+        "Only programmes returned here may be recommended. Budgets are compared after currency conversion. " +
+        "If nothing matches exactly, the result includes the closest real options.",
       inputSchema: SearchInputSchema,
       execute: async ({ noIelts, ielts, field, budgetCurrency, ...rest }) => {
         let fieldValue: Field | undefined;
@@ -87,31 +110,33 @@ export function createTools(ctx: TurnContext) {
           currencyValue = parsed.data;
         }
 
-        const results = searchCatalog({
+        const filters: SearchFilters = {
           ...rest,
           field: fieldValue,
           budgetCurrency: currencyValue,
           ielts: noIelts ? "none" : ielts,
-        });
-        for (const p of results) ctx.allowedIds.add(p.id);
-
-        const lang = ctx.profile.language;
-        return {
-          count: results.length,
-          programmes: results.map((p) => ({
-            id: p.id,
-            name: lang === "ar" ? p.name_ar : p.name_en,
-            field: p.field,
-            host: p.host,
-            country: p.country,
-            weeks: p.weeks,
-            fee: `${p.fee} ${p.currency}`,
-            approxPriceQAR: priceInQAR(p),
-            teachingLanguage: p.teaching_language,
-            minIelts: p.min_ielts,
-            scholarship: p.scholarship,
-          })),
         };
+
+        const results = searchCatalog(filters);
+        if (results.length === 0) {
+          // Nothing fits exactly: offer the closest real programmes, and allow them to be recommended.
+          const closest = closestMatches(filters);
+          for (const c of closest) ctx.allowedIds.add(c.program.id);
+          return {
+            count: 0,
+            programmes: [],
+            closest: closest.map((c) => ({
+              ...summary(c.program),
+              doesNotFit: c.doesNotFit,
+            })),
+            note:
+              "No exact match. Recommend these closest real options (put their ids in recommendedIds) " +
+              "and tell the student briefly what does not fit.",
+          };
+        }
+
+        for (const p of results) ctx.allowedIds.add(p.id);
+        return { count: results.length, programmes: results.map(summary) };
       },
     }),
 

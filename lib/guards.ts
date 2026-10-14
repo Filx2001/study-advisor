@@ -115,7 +115,7 @@ export function guardReply(
 
   if (!text || !matchesLanguage(text, lang)) return fallbackReply(ctx.profile);
 
-  const recommended = filterRecommendations(
+  let recommended = filterRecommendations(
     raw?.recommendedIds,
     ctx.allowedIds,
     ctx.profile,
@@ -129,6 +129,17 @@ export function guardReply(
     return isProfileComplete(ctx.profile)
       ? fallbackReply(ctx.profile)
       : missingFactReply(ctx.profile);
+  }
+
+  // The model searched this turn but forgot to attach any programmes:
+  // attach the best ones it actually found (real, and searched this turn).
+  // filterRecommendations still requires a complete profile.
+  if (!triedToRecommend && ctx.allowedIds.size > 0) {
+    recommended = filterRecommendations(
+      [...ctx.allowedIds],
+      ctx.allowedIds,
+      ctx.profile,
+    );
   }
 
   // No buttons from the model while facts are still missing: offer answers for the next one.
