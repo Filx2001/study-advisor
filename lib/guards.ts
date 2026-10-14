@@ -75,11 +75,13 @@ export function toCard(p: Program, lang: Language): ProgrammeCard {
   return {
     id: p.id,
     name: lang === "ar" ? p.name_ar : p.name_en,
+    field: p.field,
     host: p.host,
     country: p.country,
     weeks: p.weeks,
     fee: p.fee,
     currency: p.currency,
+    minIelts: p.min_ielts,
     scholarship: p.scholarship,
     teachingLanguage: p.teaching_language,
   };

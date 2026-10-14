@@ -18,11 +18,13 @@ export type Profile = {
 export type ProgrammeCard = {
   id: string;
   name: string; // name_en or name_ar, chosen by the server
+  field: Field;
   host: string;
   country: string;
   weeks: number;
   fee: number;
   currency: Currency;
+  minIelts: number | null; // null = no English requirement
   scholarship: boolean;
   teachingLanguage: Language;
 };
