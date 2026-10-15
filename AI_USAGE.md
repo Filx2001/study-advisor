@@ -27,3 +27,5 @@ I didn't hand-write most of the code. My part was directing, testing and integra
 - **Chose the UI design** from a mockup, asked for it to be responsive, and decided what to keep and drop (no invented universities, photos or dates).
 - **Asked for the security layers and the CI pipeline**, beyond the task's requirements.
 - **Fixed setup and integration problems:** packages installed in the wrong folder, a `@types/node` conflict with Vitest (upgraded the types rather than forcing the install), `.gitignore` hiding `.env.example`, and edits that were only partly applied, which I caught because the test count was lower than expected.
+- Claude added a guard that attached programmes the model "forgot"; in testing it showed unrelated programmes under a reply saying nothing new was left. I pushed for a strict rule instead: only programmes matching every saved fact, and server-written text whenever the server changes the cards.
+- The model recommended a course needing IELTS 6.5 to a student with 5.5. Recommendations are now checked against the saved facts, with a test replaying that exact case.

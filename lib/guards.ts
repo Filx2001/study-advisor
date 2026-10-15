@@ -288,8 +288,11 @@ export function guardReply(
   let choices = serverDecided
     ? [...PREFERENCE_CHOICES[lang]]
     : choicesInLanguage(sanitizeChoices(raw?.choices), lang);
-  if (choices.length === 0 && !isProfileComplete(ctx.profile)) {
-    choices = defaultChoices(ctx.profile);
+  // Every message offers at least one button.
+  if (choices.length === 0) {
+    choices = isProfileComplete(ctx.profile)
+      ? [...PREFERENCE_CHOICES[lang]]
+      : defaultChoices(ctx.profile);
   }
 
   // Remember what the student has now seen.

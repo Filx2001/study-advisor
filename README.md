@@ -12,7 +12,7 @@ Built with **Next.js 16**, **TypeScript** and the **Vercel AI SDK v7**.
 
 - **Asks before recommending:** interest, budget (and currency), English level, one question per message.
 - **Model-driven tools:** `searchCatalog`, `saveFact` and `sendReply`. The model decides when to call them.
-- **Only catalog programmes:** recommendations are programme IDs, checked against the catalog _and_ against what `searchCatalog` returned in the same turn. Cards are built by the server from the catalog.
+- **Only programmes that fit:** the server checks every recommendation against the catalog _and_ the student's saved facts (field, budget, English level). If nothing fits, it shows the 3 closest real programmes, each labelled with what doesn't fit. If the server changes the cards, it also writes the text, so the two never contradict.
 - **Every reply is text plus at most 3 buttons of at most 20 characters**, enforced on the server even when the model misbehaves.
 - **Arabic and English**, detected per message, with a right-to-left UI for Arabic.
 - **Honest when nothing fits:** shows the closest real programmes and says what doesn't fit (e.g. "slightly over your budget").
@@ -97,14 +97,14 @@ flowchart TD
 
 ## Where each rule is enforced
 
-| Rule                                 | Enforced in                                                                          | Tests                         |
-| ------------------------------------ | ------------------------------------------------------------------------------------ | ----------------------------- |
-| Ask before recommending              | `filterRecommendations`, `missingFactReply`                                          | `guards`, `missing`           |
-| One question per message             | `keepFirstQuestion`                                                                  | `text`                        |
-| Only catalog programmes              | `filterRecommendations` (catalog + this turn's search), `mentionsUnknownInstitution` | `guards`, `text`, `e2e-mock`  |
-| At most 3 buttons, 20 characters max | `sanitizeChoices`                                                                    | `guards`, `e2e-mock`          |
-| Reply in the student's language      | `detectLanguage`, `matchesLanguage`, `choicesInLanguage`                             | `language`, `text`            |
-| Holds when the model misbehaves      | single `guardReply` gate, `fallbackReply`, `salvagePlainText`, model fallback        | `e2e-mock`, `salvage`, `chat` |
+| Rule                                         | Enforced in                                                                    | Tests                                   |
+| -------------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------- |
+| Ask before recommending                      | `guardReply`, `missingFactReply`                                               | `missing`, `conversations`              |
+| One question per message                     | `keepFirstQuestion`                                                            | `text`                                  |
+| Only catalog programmes that fit the student | `eligibleFor` (`lib/recommend.ts`), `guardReply`, `mentionsUnknownInstitution` | `strict`, `closest`, `e2e-mock`, `text` |
+| Text plus 1–3 buttons, 20 characters max     | `sanitizeChoices`, default buttons                                             | `guards`, `buttons`, `e2e-mock`         |
+| Reply in the student's language              | `detectLanguage`, `matchesLanguage`, `choicesInLanguage`                       | `language`, `text`, `conversations`     |
+| Holds when the model misbehaves              | single `guardReply` gate, fallback, salvage, model fallback                    | `e2e-mock`, `salvage`, `chat`, `strict` |
 
 ## Security
 
@@ -151,8 +151,10 @@ lib/
   currency.ts           Fixed approximate rates to QAR
   language.ts           Arabic / English detection
   catalog.ts, schema.ts, types.ts
+  recommend.ts          What may be recommended, decided by code from the saved facts
+  queue.ts              Limits concurrent turns; friendly "busy" reply
 data/catalog.json       The programme catalog
-tests/                  15 test files, 111 tests
+tests/                  (19 files, 130 tests)
 scripts/chat.mjs        Terminal chat helper (development)
 .github/workflows/ci.yml
 ```
