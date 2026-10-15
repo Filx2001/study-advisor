@@ -11,7 +11,6 @@ import {
 import {
   fallbackReply,
   missingFactReply,
-  defaultChoices,
   catalogOnlyReply,
   CARDS_INTRO,
 } from "./fallback";
@@ -284,15 +283,23 @@ export function guardReply(
     text = CARDS_INTRO[lang];
   }
 
-  // Buttons: server-written when the server decided; otherwise the model's, checked.
+  // ----- Buttons: text and buttons always come from the same source -----
   let choices = serverDecided
     ? [...PREFERENCE_CHOICES[lang]]
     : choicesInLanguage(sanitizeChoices(raw?.choices), lang);
-  // Every message offers at least one button.
+
   if (choices.length === 0) {
-    choices = isProfileComplete(ctx.profile)
-      ? [...PREFERENCE_CHOICES[lang]]
-      : defaultChoices(ctx.profile);
+    if (!isProfileComplete(ctx.profile)) {
+      // Facts are missing and the model gave no buttons: the server asks for the next fact itself,
+      // question AND buttons, so they always match. A plain statement from the model is kept in front.
+      const ask = missingFactReply(ctx.profile);
+      const statement = /[?؟]/.test(text) ? "" : text;
+      return {
+        ...ask,
+        text: statement ? `${statement} ${ask.text}` : ask.text,
+      };
+    }
+    choices = [...PREFERENCE_CHOICES[lang]]; // every message offers at least one button
   }
 
   // Remember what the student has now seen.

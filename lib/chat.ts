@@ -6,6 +6,7 @@ import { guardReply } from "./guards";
 import { fallbackReply } from "./fallback";
 import { salvagePlainText } from "./salvage";
 import { sanitizeInput, looksLikeInjection, injectionReply } from "./security";
+import { captureAnswer } from "./capture";
 import type { ChatResponse, Profile } from "./types";
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -16,7 +17,7 @@ const TOTAL_TIMEOUT_MS = 30_000; // max time for the whole turn, across all mode
 const HISTORY_LIMIT = 20;
 const MAX_ASSISTANT_CHARS = 1_000;
 
-// One chat turn: input checks → model with tools → output guards.
+// One chat turn: input checks → capture the expected answer → model with tools → output guards.
 // Models are passed in, so tests can run the whole pipeline without a real model.
 export async function runTurn(
   messages: ChatMessage[],
@@ -24,18 +25,22 @@ export async function runTurn(
   models: ModelEntry[],
 ): Promise<ChatResponse> {
   const input = sanitizeInput(messages[messages.length - 1]?.content ?? "");
-  const baseProfile: Profile = {
+  const languageProfile: Profile = {
     ...profile,
     language: detectLanguage(input, profile.language),
   };
 
-  if (!input) return fallbackReply(baseProfile);
+  if (!input) return fallbackReply(languageProfile);
 
-  // Layer 1: obvious prompt-injection attempts get a polite server reply; the model never sees them.
+  // 1. Obvious prompt-injection attempts get a polite server reply; the model never sees them.
   if (looksLikeInjection(input)) {
     console.warn("[chat] blocked a likely prompt-injection attempt");
-    return injectionReply(baseProfile);
+    return injectionReply(languageProfile);
   }
+
+  // 2. Save the answer to the question we were waiting for, in code, before the model runs.
+  //    The model then sees it as known; if it forgets saveFact, nothing is lost.
+  const baseProfile = captureAnswer(languageProfile, input);
 
   // The history comes from the browser, so it is untrusted too:
   // clean it, cap bot messages, and neutralise earlier injection attempts.
@@ -56,8 +61,8 @@ export async function runTurn(
   recent.push({ role: "user", content: input });
   while (recent[0].role !== "user") recent.shift();
 
-  // Try each model until one produces a reply. Each attempt gets a fresh context,
-  // so a failed attempt leaves nothing behind: a turn fully succeeds or changes nothing.
+  // 3. Try each model until one produces a reply. Each attempt gets a fresh context,
+  //    so a failed attempt leaves nothing behind: a turn fully succeeds or changes nothing.
   let ctx: TurnContext = { profile: baseProfile, allowedIds: new Set() };
   const started = Date.now();
 
@@ -108,6 +113,6 @@ export async function runTurn(
     }
   }
 
-  // Every path ends here: guards fix the reply or fall back.
+  // 4. Every path ends here: guards fix the reply or fall back.
   return guardReply(ctx.reply, ctx);
 }

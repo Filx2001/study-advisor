@@ -27,7 +27,7 @@ const GREETING: Message = {
   choices: ["Hi!", "مرحبا"],
 };
 
-// Buttons of the server's fallback reply are handled here instead of being sent to the model.
+// Buttons of the server's fallback replies are handled here instead of being sent to the model.
 const RESTART = new Set(["Start over", "ابدأ من جديد"]);
 const RETRY = new Set(["Try again", "حاول مرة أخرى"]);
 
@@ -236,7 +236,7 @@ export default function Home() {
 
   return (
     <div className="h-dvh bg-linear-to-br from-indigo-100 via-slate-50 to-sky-100 lg:p-4">
-      <div className="mx-auto flex h-full max-w-[1500px] overflow-hidden bg-white/70 backdrop-blur lg:rounded-3xl lg:shadow-xl lg:ring-1 lg:ring-white">
+      <div className="mx-auto flex h-full max-w-[1600px] overflow-hidden bg-white/70 backdrop-blur lg:rounded-3xl lg:shadow-xl lg:ring-1 lg:ring-white">
         <Sidebar profile={profile} />
 
         <main className="flex min-w-0 flex-1 flex-col">
@@ -262,12 +262,15 @@ export default function Home() {
             </button>
           </header>
 
-          {/* Saved facts as chips on small screens (the sidebar is hidden there) */}
+          {/* Saved facts as chips on smaller screens (the sidebar is hidden there) */}
           <MobileProfile profile={profile} />
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-3 py-6 sm:px-6">
-            <div className="mx-auto max-w-5xl space-y-6">
+          <div
+            className="thin-scroll flex-1 overflow-y-auto px-3 py-5 sm:px-6 sm:py-6"
+            aria-live="polite"
+          >
+            <div className="mx-auto max-w-5xl space-y-5 sm:space-y-6">
               {messages.map((m, i) => {
                 const isLast = i === messages.length - 1;
                 const dir = m.language === "ar" ? "rtl" : "ltr";
@@ -331,7 +334,7 @@ export default function Home() {
                                 key={c}
                                 disabled={loading}
                                 onClick={() => send(c)}
-                                className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-400 hover:text-blue-700 disabled:opacity-50 sm:text-base"
+                                className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-400 hover:text-blue-700 disabled:opacity-50 sm:px-4 sm:py-2.5 sm:text-base"
                               >
                                 {icon && <span>{icon}</span>}
                                 <span dir="auto">{c}</span>
@@ -369,9 +372,9 @@ export default function Home() {
               e.preventDefault();
               send(input);
             }}
-            className="px-3 pb-3 pt-2 sm:px-6 sm:pb-6"
+            className="px-3 pb-3 pt-2 sm:px-6 sm:pb-5"
           >
-            <div className="mx-auto flex max-w-5xl items-center gap-2 rounded-full bg-white py-2 pe-2 ps-5 shadow-md ring-1 ring-slate-200 focus-within:ring-2 focus-within:ring-blue-400">
+            <div className="mx-auto flex max-w-5xl items-center gap-2 rounded-full bg-white py-1.5 pe-1.5 ps-4 shadow-md ring-1 ring-slate-200 focus-within:ring-2 focus-within:ring-blue-400 sm:py-2 sm:pe-2 sm:ps-5">
               <input
                 dir="auto"
                 value={input}
@@ -384,7 +387,7 @@ export default function Home() {
                 type="submit"
                 aria-label="Send"
                 disabled={loading || !input.trim()}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 disabled:bg-blue-300"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 disabled:bg-blue-300 sm:h-11 sm:w-11"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -409,26 +412,23 @@ export default function Home() {
 
 function Sidebar({ profile }: { profile: Profile }) {
   return (
-    <aside className="hidden w-80 shrink-0 flex-col gap-6 overflow-y-auto border-r border-slate-200/70 bg-linear-to-b from-indigo-50/80 to-white/60 p-6 lg:flex">
+    <aside className="thin-scroll hidden w-72 shrink-0 flex-col gap-4 overflow-y-auto border-r border-slate-200/70 bg-linear-to-b from-indigo-50/80 to-white/60 p-5 lg:flex xl:w-80">
       {/* Brand */}
       <div className="flex items-center gap-3">
-        <span className="text-5xl">🎓</span>
+        <span className="text-4xl">🎓</span>
         <div>
-          <p className="text-2xl font-extrabold leading-none text-slate-900">
-            Study
+          <p className="text-xl font-extrabold leading-tight text-slate-900">
+            Study <span className="text-blue-600">Advisor</span>
           </p>
-          <p className="text-2xl font-extrabold leading-tight text-blue-600">
-            Advisor
-          </p>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="text-xs text-slate-500">
             Find your perfect summer programme
           </p>
         </div>
       </div>
 
       {/* The only page: shown as the active item */}
-      <span className="flex items-center gap-3 rounded-2xl bg-blue-100/80 px-4 py-3 font-medium text-slate-900">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm text-white">
+      <span className="flex items-center gap-3 rounded-2xl bg-blue-100/80 px-4 py-2.5 font-medium text-slate-900">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-sm text-white">
           💬
         </span>
         Chat
@@ -436,26 +436,26 @@ function Sidebar({ profile }: { profile: Profile }) {
 
       <ProfilePanel profile={profile} />
 
-      {/* Decorative card */}
-      <div className="relative min-h-44 overflow-hidden rounded-3xl bg-linear-to-br from-indigo-100 to-sky-50 p-6">
-        <p className="text-2xl font-bold leading-tight text-slate-900">
+      {/* Decorative card: only on screens tall enough to show it whole */}
+      <div className="relative hidden min-h-40 overflow-hidden rounded-3xl bg-linear-to-br from-indigo-100 to-sky-50 p-5 [@media(min-height:820px)]:block">
+        <p className="text-xl font-bold leading-tight text-slate-900">
           Explore
           <br />
           Learn
           <br />
           Grow
         </p>
-        <p className="mt-3 max-w-[58%] text-sm text-slate-600">
+        <p className="mt-2 max-w-[58%] text-xs text-slate-600">
           Summer programmes around the world, in English and Arabic.
         </p>
-        <span className="absolute -bottom-1 right-3 text-7xl">🧑‍🎓</span>
-        <span className="absolute right-5 top-4 text-2xl">✨</span>
-        <span className="absolute right-20 top-10 text-3xl">🌍</span>
+        <span className="absolute -bottom-1 right-3 text-6xl">🧑‍🎓</span>
+        <span className="absolute right-5 top-4 text-xl">✨</span>
+        <span className="absolute right-16 top-9 text-2xl">🌍</span>
       </div>
 
-      <p className="mt-auto text-sm text-slate-500">
+      <p className="mt-auto text-xs text-slate-500">
         🌐 English · العربية{" "}
-        <span className="text-xs text-slate-400">(detected automatically)</span>
+        <span className="text-slate-400">(detected automatically)</span>
       </p>
     </aside>
   );
@@ -467,7 +467,7 @@ function ProfilePanel({ profile }: { profile: Profile }) {
     <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
       <h2 className="font-semibold text-slate-900">My Preferences</h2>
       <p className="mb-3 text-xs text-slate-500">Saved as you chat</p>
-      <ul className="space-y-2.5">
+      <ul className="space-y-2">
         {profileRows(profile).map((r) => (
           <li
             key={r.label}
@@ -486,9 +486,8 @@ function ProfilePanel({ profile }: { profile: Profile }) {
           </li>
         ))}
       </ul>
-      <p className="mt-4 border-t border-slate-100 pt-3 text-xs leading-relaxed text-slate-500">
-        🔒 Recommendations come only from the official programme catalog,
-        checked by the server.
+      <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+        🔒 Only programmes from the official catalog, checked by the server.
       </p>
     </section>
   );
@@ -498,7 +497,7 @@ function MobileProfile({ profile }: { profile: Profile }) {
   const known = profileRows(profile).filter((r) => r.value);
   if (known.length === 0) return null;
   return (
-    <div className="flex gap-2 overflow-x-auto border-b border-slate-200/70 bg-white/60 px-4 py-2 lg:hidden">
+    <div className="thin-scroll flex gap-2 overflow-x-auto border-b border-slate-200/70 bg-white/60 px-4 py-2 lg:hidden">
       {known.map((r) => (
         <span
           key={r.label}
@@ -532,7 +531,7 @@ function Bubble({ text, className }: { text: string; className: string }) {
 function Avatar({ bot }: { bot?: boolean }) {
   return (
     <div
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg shadow-sm ring-2 ring-white sm:h-10 sm:w-10 ${
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-base shadow-sm ring-2 ring-white sm:h-10 sm:w-10 sm:text-lg ${
         bot ? "bg-indigo-100" : "bg-sky-100"
       }`}
     >
@@ -540,6 +539,7 @@ function Avatar({ bot }: { bot?: boolean }) {
     </div>
   );
 }
+
 // What doesn't fit, for "closest" recommendations (computed by the server, translated here).
 function missLabel(m: Mismatch, ar: boolean): string {
   switch (m.kind) {
@@ -597,9 +597,9 @@ function ProgrammeCardView({ p, lang }: { p: ProgrammeCard; lang: Language }) {
       className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-md"
     >
       <div
-        className={`relative flex h-28 items-center justify-center bg-linear-to-br ${field.banner}`}
+        className={`relative flex h-24 items-center justify-center bg-linear-to-br sm:h-28 ${field.banner}`}
       >
-        <span className="text-5xl drop-shadow">{field.emoji}</span>
+        <span className="text-4xl drop-shadow sm:text-5xl">{field.emoji}</span>
         <span className="absolute start-3 top-3 rounded-full bg-white/25 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur">
           {ar ? field.ar : field.en}
         </span>

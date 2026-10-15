@@ -3,7 +3,7 @@ import { guardReply, sanitizeChoices } from "../lib/guards";
 import { defaultChoices, missingFactReply } from "../lib/fallback";
 import type { Profile } from "../lib/types";
 
-// Everything known except the English level — the exact situation from testing.
+// Everything known except the English level.
 const noIelts: Profile = {
   language: "en",
   interest: "business",
@@ -26,13 +26,12 @@ describe("missing facts", () => {
     expect(reply.choices).toContain("No IELTS");
   });
 
-  it("adds buttons for the next missing fact when the model gave none", () => {
+  it("when the model gives no buttons, the server asks the next question with matching buttons", () => {
     const reply = guardReply(
       { text: "Do you have an IELTS score?", choices: [], recommendedIds: [] },
       { profile: noIelts, allowedIds: new Set() },
     );
-    expect(reply.text).toBe("Do you have an IELTS score?");
-    expect(reply.choices).toEqual(["No IELTS", "IELTS 5.5", "IELTS 6.5"]);
+    expect(reply).toEqual(missingFactReply(noIelts));
   });
 
   it("default buttons obey the button rules, for every fact and language", () => {

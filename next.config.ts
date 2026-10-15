@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  devIndicators: false, // hide the "N" development badge
   poweredByHeader: false, // don't advertise "X-Powered-By: Next.js"
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
