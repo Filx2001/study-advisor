@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { closestMatches } from "../lib/search";
 import { createTools, type TurnContext } from "../lib/tools";
 import { guardReply } from "../lib/guards";
+import { recommendationText } from "../lib/recommend";
 import type { Profile } from "../lib/types";
 
 type Tools = ReturnType<typeof createTools>;
@@ -30,16 +31,14 @@ describe("closest matches", () => {
   });
 
   it("explains what does not fit", () => {
-    expect(closestMatches(filters)[0].doesNotFit).toEqual([
-      "over budget by about 525 QAR",
-    ]);
+    const first = closestMatches(filters)[0];
+    expect(first.doesNotFit).toEqual(["over budget by about 525 QAR"]);
+    expect(first.misses).toEqual([{ kind: "budget", overQAR: 525 }]);
   });
 
   it("never includes exact matches", () => {
     expect(
-      closestMatches({ field: "medicine" }).every(
-        (c) => c.doesNotFit.length > 0,
-      ),
+      closestMatches({ field: "medicine" }).every((c) => c.misses.length > 0),
     ).toBe(true);
   });
 
@@ -58,7 +57,7 @@ describe("closest matches", () => {
     expect(ctx.allowedIds.has("P06")).toBe(true);
   });
 
-  it("attaches searched programmes when the model forgot to", () => {
+  it("when the model searched but forgot the cards, the server shows the closest options with its own text", () => {
     const reply = guardReply(
       {
         text: "These are a bit over your budget.",
@@ -67,6 +66,7 @@ describe("closest matches", () => {
       },
       { profile: complete, allowedIds: new Set(["P06", "P13"]) },
     );
-    expect(reply.programmes.map((p) => p.id)).toEqual(["P06", "P13"]);
+    expect(reply.programmes.map((p) => p.id)).toEqual(["P06", "P13", "P04"]);
+    expect(reply.text).toBe(recommendationText("closest", 3, "en"));
   });
 });

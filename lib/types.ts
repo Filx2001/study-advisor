@@ -16,6 +16,15 @@ export type Profile = {
   language: Language;
 };
 
+// Why a "closest" programme doesn't match everything the student said (computed by the server).
+export type Mismatch =
+  | { kind: "field"; field: Field }
+  | { kind: "ielts"; min: number }
+  | { kind: "budget"; overQAR: number }
+  | { kind: "language" }
+  | { kind: "scholarship" }
+  | { kind: "country"; country: string };
+
 export type ProgrammeCard = {
   id: string;
   name: string; // name_en or name_ar, chosen by the server
@@ -28,6 +37,7 @@ export type ProgrammeCard = {
   minIelts: number | null; // null = no English requirement
   scholarship: boolean;
   teachingLanguage: Language;
+  misses?: Mismatch[]; // only on "closest" recommendations: what doesn't fit
 };
 
 export type ChatResponse = {

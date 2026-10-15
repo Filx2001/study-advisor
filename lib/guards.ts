@@ -2,6 +2,13 @@ import { catalog, getById } from "./catalog";
 import { arabicRatio, matchesLanguage } from "./language";
 import { stripLinks, leaksPrompt } from "./security";
 import {
+  eligibleFor,
+  recommendationText,
+  allShownText,
+  PREFERENCE_CHOICES,
+  type Candidate,
+} from "./recommend";
+import {
   fallbackReply,
   missingFactReply,
   defaultChoices,
@@ -104,9 +111,24 @@ export function toCard(p: Program, lang: Language): ProgrammeCard {
   };
 }
 
+function candidateCard(c: Candidate, lang: Language): ProgrammeCard {
+  return c.misses.length > 0
+    ? { ...toCard(c.program, lang), misses: c.misses }
+    : toCard(c.program, lang);
+}
+
 // Programme ids the student has already been shown (kept in the profile, newest last).
 export function mergeSeen(seen: string[] | undefined, ids: string[]): string[] {
   return [...new Set([...(seen ?? []), ...ids])].slice(-MAX_SEEN);
+}
+
+function normalizeIds(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const ids = input
+    .filter((x): x is string => typeof x === "string")
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
+  return [...new Set(ids)];
 }
 
 // ---------- Text ----------
@@ -213,54 +235,71 @@ export function guardReply(
   // One question per message.
   text = keepFirstQuestion(text);
 
-  let recommended = filterRecommendations(
-    raw?.recommendedIds,
-    ctx.allowedIds,
-    ctx.profile,
-  );
+  // ----- Recommendations: decided by code from the saved facts, never by the model alone -----
+  const requested = normalizeIds(raw?.recommendedIds);
+  const triedToRecommend = requested.length > 0;
+  let cards: Candidate[] = [];
+  let serverDecided = false; // when true, the server writes the text so it always matches the cards
 
-  // The model tried to recommend, but nothing survived the checks: its text would
-  // promise programmes the student can't see. Ask for what's missing instead, or fall back.
-  const ids = raw?.recommendedIds;
-  const triedToRecommend = Array.isArray(ids) && ids.length > 0;
-  if (triedToRecommend && recommended.length === 0) {
-    return isProfileComplete(ctx.profile)
-      ? fallbackReply(ctx.profile)
-      : missingFactReply(ctx.profile);
-  }
-
-  // The model searched this turn but forgot to attach any programmes:
-  // attach the best ones it actually found, ones the student hasn't seen first.
-  if (!triedToRecommend && ctx.allowedIds.size > 0) {
+  if (!isProfileComplete(ctx.profile)) {
+    // Ask before recommending: no cards until every fact is known.
+    if (triedToRecommend) return missingFactReply(ctx.profile);
+  } else {
+    const eligible = eligibleFor(ctx.profile);
+    const byId = new Map(eligible.candidates.map((c) => [c.program.id, c]));
     const seen = new Set(ctx.profile.seen ?? []);
-    const pool = [...ctx.allowedIds];
-    const newFirst = [
-      ...pool.filter((id) => !seen.has(id)),
-      ...pool.filter((id) => seen.has(id)),
-    ];
-    recommended = filterRecommendations(newFirst, ctx.allowedIds, ctx.profile);
+    const unseen = eligible.candidates.filter((c) => !seen.has(c.program.id));
+
+    if (triedToRecommend) {
+      // Keep only what matches the saved facts (or, if nothing does, the closest) and was searched this turn.
+      const kept = requested.flatMap((id) => {
+        const c = byId.get(id);
+        return c && ctx.allowedIds.has(id) ? [c] : [];
+      });
+      if (
+        kept.length === requested.length &&
+        kept.length <= MAX_RECOMMENDATIONS
+      ) {
+        cards = kept; // everything the model chose is valid: keep its text too
+      } else {
+        // Something was invalid: the model's text can't be trusted to match. The server decides.
+        serverDecided = true;
+        cards = (kept.length > 0 ? kept : unseen).slice(0, MAX_RECOMMENDATIONS);
+        text =
+          cards.length > 0
+            ? recommendationText(eligible.kind, cards.length, lang)
+            : allShownText(lang);
+      }
+    } else if (ctx.allowedIds.size > 0 && unseen.length > 0) {
+      // The model searched but attached nothing, and there are matching programmes the student hasn't seen.
+      serverDecided = true;
+      cards = unseen.slice(0, MAX_RECOMMENDATIONS);
+      text = recommendationText(eligible.kind, cards.length, lang);
+    }
   }
 
-  // The text names an institution that isn't in the catalog: don't show it.
-  if (mentionsUnknownInstitution(text)) {
-    if (recommended.length === 0) return catalogOnlyReply(ctx.profile);
+  // The model's text names an institution that isn't in the catalog: don't show it.
+  if (!serverDecided && mentionsUnknownInstitution(text)) {
+    if (cards.length === 0) return catalogOnlyReply(ctx.profile);
     text = CARDS_INTRO[lang];
   }
 
-  // Buttons: limits, right language, and defaults while facts are still missing.
-  let choices = choicesInLanguage(sanitizeChoices(raw?.choices), lang);
+  // Buttons: server-written when the server decided; otherwise the model's, checked.
+  let choices = serverDecided
+    ? [...PREFERENCE_CHOICES[lang]]
+    : choicesInLanguage(sanitizeChoices(raw?.choices), lang);
   if (choices.length === 0 && !isProfileComplete(ctx.profile)) {
     choices = defaultChoices(ctx.profile);
   }
 
-  // Remember what the student has now seen, so "more options" can show something new.
+  // Remember what the student has now seen.
   const profile =
-    recommended.length > 0
+    cards.length > 0
       ? {
           ...ctx.profile,
           seen: mergeSeen(
             ctx.profile.seen,
-            recommended.map((p) => p.id),
+            cards.map((c) => c.program.id),
           ),
         }
       : ctx.profile;
@@ -269,7 +308,7 @@ export function guardReply(
     language: lang,
     text,
     choices,
-    programmes: recommended.map((p) => toCard(p, lang)),
+    programmes: cards.map((c) => candidateCard(c, lang)),
     profile,
   };
 }

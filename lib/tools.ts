@@ -5,7 +5,6 @@ import {
   searchCatalog,
   closestMatches,
   priceInQAR,
-  type ClosestMatch,
   type SearchFilters,
 } from "./search";
 import { FieldSchema, CurrencySchema } from "./schema";
@@ -32,7 +31,7 @@ const SearchInputSchema = z.object({
   country: z.string().optional(),
 });
 
-// Deliberately loose: the real limits (3 choices, 20 chars, known ids)
+// Deliberately loose: the real limits (3 choices, 20 chars, which programmes)
 // are enforced in guardReply, so a misbehaving model is corrected, not crashed.
 const ReplyInputSchema = z.object({
   text: z.string(),
@@ -55,12 +54,9 @@ export function createTools(ctx: TurnContext) {
       teachingLanguage: p.teaching_language,
       minIelts: p.min_ielts,
       scholarship: p.scholarship,
+      alreadyShown: (ctx.profile.seen ?? []).includes(p.id),
     };
   };
-  const alternative = (c: ClosestMatch) => ({
-    ...summary(c.program),
-    doesNotFit: c.doesNotFit,
-  });
 
   return {
     saveFact: tool({
@@ -83,9 +79,8 @@ export function createTools(ctx: TurnContext) {
     searchCatalog: tool({
       description:
         "Search the official programme catalog — the ONLY source of programmes. " +
-        "Only programmes returned here may be recommended. Budgets are compared after currency conversion. " +
-        "Results the student has already seen are marked alreadyShown. When there are few new matches, " +
-        "alsoConsider lists the closest real alternatives.",
+        "Budgets are compared after currency conversion. Programmes the student has already seen are marked alreadyShown. " +
+        "If nothing matches, the result includes the closest real options.",
       inputSchema: SearchInputSchema,
       execute: async ({ noIelts, ielts, field, budgetCurrency, ...rest }) => {
         let fieldValue: Field | undefined;
@@ -122,53 +117,24 @@ export function createTools(ctx: TurnContext) {
           budgetCurrency: currencyValue,
           ielts: noIelts ? "none" : ielts,
         };
-        const seen = new Set(ctx.profile.seen ?? []);
-        const ranked = () => closestMatches(filters, 14);
 
         const results = searchCatalog(filters);
-        for (const p of results) ctx.allowedIds.add(p.id);
-
         if (results.length === 0) {
-          // Nothing fits exactly: offer the closest real programmes (new ones first) and allow them.
-          const all = ranked();
-          const unseen = all.filter((c) => !seen.has(c.program.id));
-          const closest = (unseen.length > 0 ? unseen : all).slice(0, 3);
+          const closest = closestMatches(filters);
           for (const c of closest) ctx.allowedIds.add(c.program.id);
           return {
             count: 0,
             programmes: [],
-            closest: closest.map(alternative),
-            note:
-              "No exact match. Recommend these closest real options (put their ids in recommendedIds) " +
-              "and tell the student briefly what does not fit.",
+            closest: closest.map((c) => ({
+              ...summary(c.program),
+              doesNotFit: c.doesNotFit,
+            })),
+            note: "No exact match. These are the closest real options; recommend them and say briefly what does not fit.",
           };
         }
 
-        // Fewer than 3 matches the student hasn't seen: add the closest unseen alternatives.
-        const newMatches = results.filter((p) => !seen.has(p.id)).length;
-        const alsoConsider =
-          newMatches >= 3
-            ? []
-            : ranked()
-                .filter((c) => !seen.has(c.program.id))
-                .slice(0, 3 - newMatches);
-        for (const c of alsoConsider) ctx.allowedIds.add(c.program.id);
-
-        return {
-          count: results.length,
-          programmes: results.map((p) => ({
-            ...summary(p),
-            alreadyShown: seen.has(p.id),
-          })),
-          ...(alsoConsider.length > 0
-            ? {
-                alsoConsider: alsoConsider.map(alternative),
-                note:
-                  "Few new exact matches. If the student wants more or other options, recommend from alsoConsider " +
-                  "and say briefly what does not fit. Do not recommend alreadyShown programmes again unless asked about them.",
-              }
-            : {}),
-        };
+        for (const p of results) ctx.allowedIds.add(p.id);
+        return { count: results.length, programmes: results.map(summary) };
       },
     }),
 

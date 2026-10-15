@@ -179,7 +179,7 @@ describe("full conversations (scripted model, real pipeline)", () => {
     expect(replies[0]).toEqual(missingFactReply({ language: "en" }));
   });
 
-  it("'Give me 10 options' still gets at most 3 buttons and 3 cards", async () => {
+  it("'Give me 10 options' only shows programmes that match the saved facts", async () => {
     const start: Profile = {
       language: "en",
       interest: "medicine",
@@ -215,8 +215,12 @@ describe("full conversations (scripted model, real pipeline)", () => {
       ],
       start,
     );
-    expect(replies[0].choices).toHaveLength(3);
-    expect(replies[0].programmes).toHaveLength(3);
+    // Only the two medicine programmes match; the other eight are dropped, and the server rewrites the text.
+    expect(replies[0].programmes.map((p) => p.id)).toEqual(["P03", "P08"]);
+    expect(replies[0].text).toBe(
+      "These programmes match everything you told me.",
+    );
+    expect(replies[0].choices.length).toBeLessThanOrEqual(3);
   });
 
   it("a tiny budget still gets the closest real programmes, even if the model forgets to attach them", async () => {

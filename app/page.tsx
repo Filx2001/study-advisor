@@ -5,6 +5,7 @@ import type {
   ChatResponse,
   Field,
   Language,
+  Mismatch,
   Profile,
   ProgrammeCard,
 } from "@/lib/types";
@@ -539,6 +540,29 @@ function Avatar({ bot }: { bot?: boolean }) {
     </div>
   );
 }
+// What doesn't fit, for "closest" recommendations (computed by the server, translated here).
+function missLabel(m: Mismatch, ar: boolean): string {
+  switch (m.kind) {
+    case "field":
+      return ar
+        ? `مجال مختلف: ${FIELDS[m.field].ar}`
+        : `Different field: ${FIELDS[m.field].en}`;
+    case "ielts":
+      return ar ? `يتطلب آيلتس ${m.min}` : `Needs IELTS ${m.min}`;
+    case "budget":
+      return ar
+        ? `أعلى من ميزانيتك بحوالي ${m.overQAR.toLocaleString()} ريال`
+        : `About ${m.overQAR.toLocaleString()} QAR over your budget`;
+    case "language":
+      return ar ? "لغة تدريس مختلفة" : "Different teaching language";
+    case "scholarship":
+      return ar ? "لا توجد منحة" : "No scholarship";
+    case "country":
+      return ar
+        ? `في ${COUNTRIES_AR[m.country] ?? m.country}`
+        : `In ${m.country}`;
+  }
+}
 
 function ProgrammeCardView({ p, lang }: { p: ProgrammeCard; lang: Language }) {
   const ar = lang === "ar";
@@ -600,6 +624,13 @@ function ProgrammeCardView({ p, lang }: { p: ProgrammeCard; lang: Language }) {
             · {ielts}
           </li>
         </ul>
+        {p.misses && p.misses.length > 0 && (
+          <ul className="space-y-1 rounded-xl bg-amber-50 p-2 text-xs font-medium text-amber-900 ring-1 ring-amber-200">
+            {p.misses.map((m, i) => (
+              <li key={i}>⚠️ {missLabel(m, ar)}</li>
+            ))}
+          </ul>
+        )}
         <p className="mt-auto pt-2 text-lg font-bold text-slate-900">
           {p.fee === 0 ? t.free : `${p.fee.toLocaleString()} ${p.currency}`}
         </p>
