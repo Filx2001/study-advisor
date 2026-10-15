@@ -8,6 +8,8 @@ and every reply is checked by server code before the student sees it.
 
 Built with **Next.js 16**, **TypeScript** and the **Vercel AI SDK v7**.
 
+**Live demo:** https://studyadvisor.up.railway.app (free-tier model: if it's busy, try again in a moment)
+
 ## Features
 
 - **Asks before recommending:** field, budget (and currency), English level, one question per message.
@@ -19,7 +21,7 @@ Built with **Next.js 16**, **TypeScript** and the **Vercel AI SDK v7**.
 - **Works with Groq or Google Gemini**, and moves on to the next model if one fails. A queue keeps busy moments from overloading the provider.
 - **Security layers** against prompt injection and abuse (see [Security](#security)).
 - **Responsive** from a 320px phone to a 2560px monitor.
-- **144 unit and conversation tests** (including full conversations with a scripted, misbehaving mock model), plus **Playwright browser tests** on desktop, phone and 7 screen sizes. No test calls a real model.
+- **147 unit and conversation tests** (including full conversations with a scripted, misbehaving mock model), plus **Playwright browser tests** on desktop, phone and 7 screen sizes. No test calls a real model.
 
 ## Quick start
 
@@ -156,7 +158,7 @@ lib/
   language.ts           Arabic / English detection
   catalog.ts, schema.ts, types.ts
 data/catalog.json       The programme catalog
-tests/                  Unit and conversation tests (21 files, 144 tests)
+tests/                  Unit and conversation tests (21 files, 147 tests)
 e2e/                    Playwright browser tests (chat flows and 7 screen sizes)
 scripts/chat.mjs        Terminal chat helper (development)
 .github/workflows/ci.yml
