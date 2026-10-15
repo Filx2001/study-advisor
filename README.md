@@ -128,6 +128,8 @@ Prompt injection can't be fully prevented, so the design does two things: make i
 
 **Known limitations:** the browser could forge chat history or the profile (every reply is still guarded); the rate limit is in-memory, per server instance; there is no Content-Security-Policy yet.
 
+- A global queue limits how many turns call the model at once; extra turns wait in line, and when the line is full the student gets a friendly "busy, try again" reply instead of an error.
+
 ## Project structure
 
 ```

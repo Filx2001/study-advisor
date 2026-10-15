@@ -197,8 +197,9 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: history, profile }),
       });
-      // 429 (too many messages) still carries a valid reply to show.
-      if (!res.ok && res.status !== 429) throw new Error(`HTTP ${res.status}`);
+      // 429 (too many messages) and 503 (server busy) still carry a valid reply to show.
+      if (!res.ok && res.status !== 429 && res.status !== 503)
+        throw new Error(`HTTP ${res.status}`);
 
       const data: ChatResponse = await res.json();
       setProfile(data.profile);
