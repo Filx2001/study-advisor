@@ -19,6 +19,8 @@
 9. **Currencies and "no match".** The catalog uses seven currencies, so prices are compared in QAR with fixed approximate rates. When nothing fits, the bot shows the closest real programmes, ranked so a different field counts most, then English level, then how far over budget.
 10. **Security: harder and harmless.** A deliberately narrow injection filter (a false alarm blocks a real student; a miss is still caught by the output guards), prompt rules, read-only tools, output guards, a rate limit, security headers, and a secret scan in CI.
 
+11. **A queue for busy moments.** Without it, many students at once means many simultaneous model calls, which hit the provider's rate limits and fail together. Turns now run a few at a time, wait in line, and get a clear "busy, try again" reply if the line is full. It is in-memory (per server instance); a production deployment would use a shared queue such as Redis.
+
 ## With more time
 
 - Streaming with buffered, guarded chunks

@@ -18,7 +18,7 @@ Built with **Next.js 16**, **TypeScript** and the **Vercel AI SDK v7**.
 - **Honest when nothing fits:** shows the closest real programmes and says what doesn't fit (e.g. "slightly over your budget").
 - **Works with Groq or Google Gemini**, and moves on to the next model if one fails.
 - **Security layers** against prompt injection and abuse (see [Security](#security)).
-- **111 unit tests**, including end-to-end tests with a scripted, misbehaving mock model. No test calls a real model.
+- **117 unit and conversation tests** (including full conversations with a scripted, misbehaving mock model), plus **Playwright browser tests** on desktop and phone. No test calls a real model.
 
 ## Quick start
 
@@ -40,6 +40,12 @@ Open `.env.local` and add at least one key:
 | `GOOGLE_GENERATIVE_AI_API_KEY` | one of the two | Google AI Studio (Gemini) key                                                                                                                                                               |
 | `AI_MODELS`                    | no             | Models to try in order, as `provider:model`, comma-separated. Providers without a key are skipped. Default: `groq:openai/gpt-oss-120b,google:gemini-3.5-flash,google:gemini-3.1-flash-lite` |
 
+| `MAX_CONCURRENT_TURNS` | no | Chat turns calling the model at the same time (default 4) |
+
+| `MAX_QUEUED_TURNS` | no | Turns allowed to wait in line (default 20) |
+
+| `MAX_QUEUE_WAIT_MS` | no | Longest wait in line before a friendly "busy" reply (default 15000) |
+
 Then:
 
 ```bash
@@ -50,16 +56,17 @@ Open http://localhost:3000.
 
 ## Scripts
 
-| Command                 | What it does                                            |
-| ----------------------- | ------------------------------------------------------- |
-| `npm run dev`           | Start the app in development mode                       |
-| `npm test`              | Run the unit tests (no API key needed)                  |
-| `npm run lint`          | ESLint                                                  |
-| `npm run typecheck`     | TypeScript check, including tests                       |
-| `npm run build`         | Production build                                        |
-| `node scripts/chat.mjs` | Dev helper: chat with the running API from the terminal |
+| Command                 | What it does                                                                                   |
+| ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `npm run dev`           | Start the app in development mode                                                              |
+| `npm test`              | Unit and conversation tests (no API key needed)                                                |
+| `npm run test:e2e`      | Browser tests with Playwright, desktop and phone (first run `npx playwright install chromium`) |
+| `npm run lint`          | ESLint                                                                                         |
+| `npm run typecheck`     | TypeScript check, including tests                                                              |
+| `npm run build`         | Production build                                                                               |
+| `node scripts/chat.mjs` | Dev helper: chat with the running API from the terminal                                        |
 
-CI (GitHub Actions) runs lint, typecheck, tests and the build on every push, plus a secret scan of the whole git history.
+CI (GitHub Actions) runs lint, typecheck, unit tests, the build and the browser tests on every push, plus a secret scan of the whole git history.
 
 ## How it works
 

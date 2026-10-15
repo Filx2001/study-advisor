@@ -5,6 +5,7 @@ import { availableModels } from "@/lib/models";
 import { allowRequest } from "@/lib/rate-limit";
 import { rateLimitReply } from "@/lib/security";
 import { detectLanguage } from "@/lib/language";
+import { chatQueue, busyReply, QueueBusyError } from "@/lib/queue";
 
 const ChatRequestSchema = z.object({
   messages: z
@@ -45,14 +46,28 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+  const language = detectLanguage(last.content, profile.language);
 
-  // Rate limit: protects the API key's quota from abuse.
+  // Per-user rate limit: protects the API key's quota from one abusive client.
   if (!allowRequest(clientKey(req))) {
-    const language = detectLanguage(last.content, profile.language);
     return Response.json(rateLimitReply({ ...profile, language }), {
       status: 429,
     });
   }
 
-  return Response.json(await runTurn(messages, profile, availableModels()));
+  // Global queue: at most a few turns call the model at once; the rest wait their turn.
+  try {
+    const reply = await chatQueue.run(() =>
+      runTurn(messages, profile, availableModels()),
+    );
+    return Response.json(reply);
+  } catch (error) {
+    if (error instanceof QueueBusyError) {
+      console.warn(`[chat] queue ${error.reason}:`, chatQueue.stats);
+      return Response.json(busyReply({ ...profile, language }), {
+        status: 503,
+      });
+    }
+    throw error;
+  }
 }

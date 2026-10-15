@@ -170,3 +170,24 @@ test("phone: the sidebar is hidden and saved facts show as chips", async ({
   await page.getByRole("button", { name: /Hi!/ }).click();
   await expect(page.getByText("🎯 Medicine")).toBeVisible();
 });
+
+test("a busy server shows a friendly 'try again' message", async ({ page }) => {
+  await page.route("**/api/chat", (route) =>
+    route.fulfill({
+      status: 503,
+      json: {
+        language: "en",
+        text: "Lots of students are using the advisor right now. Please try again in a moment.",
+        choices: ["Try again"],
+        programmes: [],
+        profile: { language: "en" },
+      },
+    }),
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: /Hi!/ }).click();
+  await expect(
+    page.getByText("Lots of students are using the advisor right now."),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /Try again/ })).toBeVisible();
+});
