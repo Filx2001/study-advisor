@@ -50,4 +50,7 @@ export const ProfileSchema = z.object({
     .array(z.string().regex(/^P\d{2}$/))
     .max(20)
     .optional(),
+  awaiting: z
+    .enum(["interest", "budget", "currency", "ielts", "other"])
+    .optional(),
 });

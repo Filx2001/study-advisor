@@ -90,7 +90,7 @@ describe("capturing the expected answer in code", () => {
       currency: "QAR",
     });
     expect(replies[0].text).toBe(
-      "Before I can recommend programmes: do you have an IELTS score?",
+      "Great, 100,000 QAR noted. Do you have an IELTS score, or would you need a programme without one?",
     );
     expect(replies[0].choices).toEqual(["No IELTS", "IELTS 5.5", "IELTS 6.5"]);
   });

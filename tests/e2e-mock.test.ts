@@ -152,7 +152,10 @@ describe("end to end with a scripted, misbehaving model", () => {
       { language: "en" },
       [model],
     );
-    expect(reply).toEqual(fallbackReply({ language: "ar" }));
+    // "أحب الطب" was captured in code before the model ran; the bad reply is replaced, the saved answer is kept.
+    expect(reply).toEqual(
+      fallbackReply({ language: "ar", interest: "medicine" }),
+    );
   });
 
   it("replaces a reply that leaks the instructions", async () => {
@@ -197,7 +200,7 @@ describe("end to end with a scripted, misbehaving model", () => {
 
     expect(broken.doGenerateCalls).toHaveLength(1);
     expect(reply.text).toBe("Which field interests you?");
-    expect(reply.choices).toEqual(["Computing"]);
+    expect(reply.choices).toEqual(["Computing", "Business", "Medicine"]);
   });
 
   it("salvages a model that answers in plain text instead of calling sendReply", async () => {
@@ -213,6 +216,10 @@ describe("end to end with a scripted, misbehaving model", () => {
       [model],
     );
     expect(reply.text).toBe("What is your budget?");
-    expect(reply.choices).toEqual(["Under 5,000 QAR", "No limit"]);
+    expect(reply.choices).toEqual([
+      "Under 5,000 QAR",
+      "Under 15,000 QAR",
+      "No limit",
+    ]);
   });
 });

@@ -13,6 +13,7 @@ export type Profile = {
   ielts?: number | "none"; // "none" = no IELTS / weak English
   wantsScholarship?: boolean;
   seen?: string[]; // programme ids already shown to the student (maintained by the server)
+  awaiting?: "interest" | "budget" | "currency" | "ielts" | "other"; // what the last bot question asked (server)
   language: Language;
 };
 

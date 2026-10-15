@@ -177,15 +177,26 @@ export function detectIelts(message: string): number | "none" | undefined {
 
 // ---------- Capture ----------
 
-// Save the answer to the next missing fact, if the message clearly contains it.
+function withoutAwaiting(profile: Profile): Profile {
+  const { awaiting, ...rest } = profile;
+  void awaiting;
+  return rest;
+}
+
+// Save the answer to the question the bot just asked (profile.awaiting), or else to the next missing fact.
+// An answer can also CHANGE a known fact (e.g. after "Change field").
+// A reply to a question about something else ("other", e.g. a yes/no question) is never captured.
 export function captureAnswer(profile: Profile, message: string): Profile {
-  const next = missingFacts(profile)[0];
+  const cleared = withoutAwaiting(profile);
+  if (profile.awaiting === "other") return cleared;
+
+  const fact = profile.awaiting ?? missingFacts(profile)[0];
   const facts: Facts = {};
 
-  if (next === "interest") {
+  if (fact === "interest") {
     const field = detectField(message);
     if (field) facts.interest = field;
-  } else if (next === "budget") {
+  } else if (fact === "budget") {
     const budget = detectBudget(message);
     if (budget) {
       facts.budget = budget.amount;
@@ -193,16 +204,16 @@ export function captureAnswer(profile: Profile, message: string): Profile {
       else if (budget.amount !== "none" && !profile.currency)
         facts.currency = "QAR"; // same rule as the prompt
     }
-  } else if (next === "currency") {
+  } else if (fact === "currency") {
     const currency = detectCurrency(message);
     if (currency) facts.currency = currency;
-  } else if (next === "ielts") {
+  } else if (fact === "ielts") {
     const ielts = detectIelts(message);
     if (ielts === "none") facts.noIelts = true;
     else if (ielts !== undefined) facts.ielts = ielts;
   }
 
   return Object.keys(facts).length > 0
-    ? applyFact(profile, facts).profile
-    : profile;
+    ? applyFact(cleared, facts).profile
+    : cleared;
 }

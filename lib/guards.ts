@@ -14,6 +14,13 @@ import {
   catalogOnlyReply,
   CARDS_INTRO,
 } from "./fallback";
+import {
+  choicesFor,
+  detectQuestionTopic,
+  isYesNoQuestion,
+  YES_NO,
+  type Awaiting,
+} from "./questions";
 import type {
   ChatResponse,
   Language,
@@ -283,36 +290,55 @@ export function guardReply(
     text = CARDS_INTRO[lang];
   }
 
-  // ----- Buttons: text and buttons always come from the same source -----
-  let choices = serverDecided
-    ? [...PREFERENCE_CHOICES[lang]]
-    : choicesInLanguage(sanitizeChoices(raw?.choices), lang);
+  // ----- Buttons: they must answer the message they are under -----
+  let choices: string[] = [];
+  let awaiting: Awaiting | undefined;
 
-  if (choices.length === 0) {
-    if (!isProfileComplete(ctx.profile)) {
-      // Facts are missing and the model gave no buttons: the server asks for the next fact itself,
-      // question AND buttons, so they always match. A plain statement from the model is kept in front.
+  if (serverDecided) {
+    choices = [...PREFERENCE_CHOICES[lang]]; // the server's text is a statement about the cards
+  } else {
+    const asks = /[?؟]/.test(text);
+    const topic = asks ? detectQuestionTopic(text) : undefined;
+    const modelChoices = choicesInLanguage(sanitizeChoices(raw?.choices), lang);
+
+    if (topic) {
+      // The question is about a known fact: the server's buttons answer exactly that question.
+      choices = choicesFor(topic, ctx.profile);
+      awaiting = topic;
+    } else if (modelChoices.length > 0) {
+      choices = modelChoices;
+      awaiting = asks ? "other" : undefined;
+    } else if (!isProfileComplete(ctx.profile)) {
+      // Facts are missing and the model gave no usable buttons: the server asks the next question itself,
+      // question AND buttons together. A plain statement from the model is kept in front.
       const ask = missingFactReply(ctx.profile);
-      const statement = /[?؟]/.test(text) ? "" : text;
+      const statement = asks ? "" : text;
       return {
         ...ask,
         text: statement ? `${statement} ${ask.text}` : ask.text,
       };
+    } else if (asks) {
+      // A question we can't classify: Yes/No if it is a yes/no question, otherwise no buttons rather than wrong ones.
+      choices = isYesNoQuestion(text) ? [...YES_NO[lang]] : [];
+      awaiting = "other";
+    } else {
+      choices = [...PREFERENCE_CHOICES[lang]]; // after a statement, offer the next actions
     }
-    choices = [...PREFERENCE_CHOICES[lang]]; // every message offers at least one button
   }
 
-  // Remember what the student has now seen.
-  const profile =
-    cards.length > 0
+  // Remember what the student has now seen, and what this message asked.
+  const profile: Profile = {
+    ...ctx.profile,
+    awaiting,
+    ...(cards.length > 0
       ? {
-          ...ctx.profile,
           seen: mergeSeen(
             ctx.profile.seen,
             cards.map((c) => c.program.id),
           ),
         }
-      : ctx.profile;
+      : {}),
+  };
 
   return {
     language: lang,

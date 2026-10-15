@@ -33,6 +33,9 @@ describe("runTurn (no model needed)", () => {
       { language: "en" },
       [],
     );
-    expect(reply).toEqual(fallbackReply({ language: "en" }));
+    // The answer ("medicine") was captured in code before the model ran, so it is kept even though no model replied.
+    expect(reply).toEqual(
+      fallbackReply({ language: "en", interest: "medicine" }),
+    );
   });
 });

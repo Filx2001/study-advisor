@@ -26,12 +26,14 @@ describe("missing facts", () => {
     expect(reply.choices).toContain("No IELTS");
   });
 
-  it("when the model gives no buttons, the server asks the next question with matching buttons", () => {
+  it("when the model asks about a fact without buttons, the server adds buttons that answer it", () => {
     const reply = guardReply(
       { text: "Do you have an IELTS score?", choices: [], recommendedIds: [] },
       { profile: noIelts, allowedIds: new Set() },
     );
-    expect(reply).toEqual(missingFactReply(noIelts));
+    expect(reply.text).toBe("Do you have an IELTS score?");
+    expect(reply.choices).toEqual(["No IELTS", "IELTS 5.5", "IELTS 6.5"]);
+    expect(reply.profile.awaiting).toBe("ielts");
   });
 
   it("default buttons obey the button rules, for every fact and language", () => {

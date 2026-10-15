@@ -7,6 +7,7 @@ import { fallbackReply } from "./fallback";
 import { salvagePlainText } from "./salvage";
 import { sanitizeInput, looksLikeInjection, injectionReply } from "./security";
 import { captureAnswer } from "./capture";
+import { detectChangeRequest, changeReply } from "./questions";
 import type { ChatResponse, Profile } from "./types";
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -37,7 +38,9 @@ export async function runTurn(
     console.warn("[chat] blocked a likely prompt-injection attempt");
     return injectionReply(languageProfile);
   }
-
+  // 1b. Taps on the server's own buttons ("Change field", "Change budget") are answered in code.
+  const change = detectChangeRequest(input);
+  if (change) return changeReply(languageProfile, change);
   // 2. Save the answer to the question we were waiting for, in code, before the model runs.
   //    The model then sees it as known; if it forgets saveFact, nothing is lost.
   const baseProfile = captureAnswer(languageProfile, input);
