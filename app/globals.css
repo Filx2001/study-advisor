@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* The whole UI scales with the screen: Tailwind sizes are in rem, and the root size grows
+   from 16px (phones, laptops) to 20px (very large monitors). 16px minimum also stops
+   iPhones from zooming in when the input is tapped. */
+html {
+  font-size: clamp(16px, 0.3vw + 12px, 20px);
+}
+
 /* System fonts that include Arabic glyphs (Segoe UI / Tahoma on Windows, system-ui elsewhere). */
 body {
   font-family: system-ui, "Segoe UI", Tahoma, Arial, sans-serif;

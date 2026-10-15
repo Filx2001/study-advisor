@@ -235,8 +235,12 @@ export default function Home() {
   }
 
   return (
-    <div className="h-dvh bg-linear-to-br from-indigo-100 via-slate-50 to-sky-100 lg:p-4">
-      <div className="mx-auto flex h-full max-w-[1600px] overflow-hidden bg-white/70 backdrop-blur lg:rounded-3xl lg:shadow-xl lg:ring-1 lg:ring-white">
+    <div className="h-dvh bg-linear-to-br from-indigo-100 via-slate-50 to-sky-100 lg:p-3 2xl:p-4">
+      {/* Fills the whole screen at every size; everything inside scales with the root font size. */}
+      <div
+        data-app
+        className="flex h-full overflow-hidden bg-white/70 backdrop-blur lg:rounded-3xl lg:shadow-xl lg:ring-1 lg:ring-white"
+      >
         <Sidebar profile={profile} />
 
         <main className="flex min-w-0 flex-1 flex-col">
@@ -270,7 +274,7 @@ export default function Home() {
             className="thin-scroll flex-1 overflow-y-auto px-3 py-5 sm:px-6 sm:py-6"
             aria-live="polite"
           >
-            <div className="mx-auto max-w-5xl space-y-5 sm:space-y-6">
+            <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6 2xl:max-w-5xl">
               {messages.map((m, i) => {
                 const isLast = i === messages.length - 1;
                 const dir = m.language === "ar" ? "rtl" : "ltr";
@@ -374,7 +378,7 @@ export default function Home() {
             }}
             className="px-3 pb-3 pt-2 sm:px-6 sm:pb-5"
           >
-            <div className="mx-auto flex max-w-5xl items-center gap-2 rounded-full bg-white py-1.5 pe-1.5 ps-4 shadow-md ring-1 ring-slate-200 focus-within:ring-2 focus-within:ring-blue-400 sm:py-2 sm:pe-2 sm:ps-5">
+            <div className="mx-auto flex max-w-4xl items-center gap-2 rounded-full bg-white py-1.5 pe-1.5 ps-4 shadow-md ring-1 ring-slate-200 focus-within:ring-2 focus-within:ring-blue-400 sm:py-2 sm:pe-2 sm:ps-5 2xl:max-w-5xl">
               <input
                 dir="auto"
                 value={input}
@@ -436,27 +440,23 @@ function Sidebar({ profile }: { profile: Profile }) {
 
       <ProfilePanel profile={profile} />
 
-      {/* Decorative card: only on screens tall enough to show it whole */}
-      <div className="relative hidden min-h-40 overflow-hidden rounded-3xl bg-linear-to-br from-indigo-100 to-sky-50 p-5 [@media(min-height:820px)]:block">
-        <p className="text-xl font-bold leading-tight text-slate-900">
-          Explore
-          <br />
-          Learn
-          <br />
-          Grow
+      {/* Bottom group: stays at the bottom, so the sidebar never has a hole in the middle */}
+      <div className="mt-auto space-y-4">
+        <div className="relative hidden overflow-hidden rounded-2xl bg-linear-to-br from-indigo-100 to-sky-50 p-4 [@media(min-height:700px)]:block">
+          <p className="text-base font-bold text-slate-900">
+            Explore · Learn · Grow
+          </p>
+          <p className="mt-1 max-w-[70%] text-xs text-slate-600">
+            Summer programmes around the world, in English and Arabic.
+          </p>
+          <span className="absolute -bottom-1 right-2 text-5xl">🧑‍🎓</span>
+          <span className="absolute right-3 top-2 text-base">✨</span>
+        </div>
+        <p className="text-xs text-slate-500">
+          🌐 English · العربية{" "}
+          <span className="text-slate-400">(detected automatically)</span>
         </p>
-        <p className="mt-2 max-w-[58%] text-xs text-slate-600">
-          Summer programmes around the world, in English and Arabic.
-        </p>
-        <span className="absolute -bottom-1 right-3 text-6xl">🧑‍🎓</span>
-        <span className="absolute right-5 top-4 text-xl">✨</span>
-        <span className="absolute right-16 top-9 text-2xl">🌍</span>
       </div>
-
-      <p className="mt-auto text-xs text-slate-500">
-        🌐 English · العربية{" "}
-        <span className="text-slate-400">(detected automatically)</span>
-      </p>
     </aside>
   );
 }
@@ -514,7 +514,7 @@ function MobileProfile({ profile }: { profile: Profile }) {
 function Bubble({ text, className }: { text: string; className: string }) {
   return (
     <div
-      className={`space-y-2 rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm sm:text-base ${className}`}
+      className={`space-y-2 rounded-2xl px-4 py-3 text-[0.95rem] leading-relaxed shadow-sm sm:text-base ${className}`}
     >
       {text
         .split("\n")

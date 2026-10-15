@@ -33,6 +33,20 @@ for (const screen of SCREENS) {
     await expect(page.getByPlaceholder(/Type your message/)).toBeInViewport();
     await expect(page.getByRole("button", { name: /Hi!/ })).toBeInViewport();
 
+    // The app uses the whole width: no empty side margins on wide screens.
+    const appWidth = await page
+      .locator("[data-app]")
+      .evaluate((el) => el.getBoundingClientRect().width);
+    expect(appWidth).toBeGreaterThanOrEqual(screen.width - 64);
+
+    // Text grows on very large screens instead of looking tiny.
+    if (screen.width >= 2560) {
+      const rootFont = await page.evaluate(() =>
+        parseFloat(getComputedStyle(document.documentElement).fontSize),
+      );
+      expect(rootFont).toBeGreaterThanOrEqual(18);
+    }
+
     // Where the sidebar is shown, it fits the screen without its own scrollbar.
     const sidebar = page.getByRole("complementary");
     if (await sidebar.isVisible()) {
