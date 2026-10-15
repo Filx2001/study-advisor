@@ -54,6 +54,7 @@ export function sanitizeChoices(input: unknown): string[] {
     if (typeof raw !== "string") continue;
     const choice = shortenChoice(raw.replace(/\s+/g, " ").trim());
     if (!choice) continue;
+    if (/\bP\d{2}\b/i.test(choice)) continue; // internal programme codes never appear on buttons
     if (result.some((c) => c.toLowerCase() === choice.toLowerCase())) continue;
     result.push(choice);
     if (result.length === MAX_CHOICES) break;
@@ -257,10 +258,11 @@ export function guardReply(
     const unseen = eligible.candidates.filter((c) => !seen.has(c.program.id));
 
     if (triedToRecommend) {
-      // Keep only what matches the saved facts (or, if nothing does, the closest) and was searched this turn.
+      // Keep only what matches the saved facts (or, if nothing does, the closest).
+      // The catalog and the saved facts decide, so a fitting programme can be shown again when asked about.
       const kept = requested.flatMap((id) => {
         const c = byId.get(id);
-        return c && ctx.allowedIds.has(id) ? [c] : [];
+        return c ? [c] : [];
       });
       if (
         kept.length === requested.length &&
