@@ -26,6 +26,7 @@ function describeProfile(p: Profile): string {
     `- budget: ${budget}`,
     `- English level: ${english}`,
     `- wants a scholarship: ${scholarship}`,
+    `- programmes already shown: ${p.seen?.length ? p.seen.join(", ") : "none"}`,
   ].join("\n");
 }
 
@@ -73,6 +74,10 @@ RULES FOR sendReply
 - If searchCatalog returns count 0, its result includes "closest": real programmes that almost fit, each with "doesNotFit".
   Recommend those (put their ids in recommendedIds) and say briefly what does not fit, e.g. "Nothing fits exactly;
   these are the closest — slightly over your budget." Never invent programmes.
+- Programmes marked "alreadyShown" have been shown before: don't recommend them again unless the student asks about one.
+  When the student asks for more or other options, recommend new ones: from "programmes" if any are new, otherwise from
+  "alsoConsider" (real alternatives that almost fit; say briefly what does not fit). If nothing new is left, say so honestly
+  and suggest changing one preference.
 - If the student asks which programmes exist, call searchCatalog and show them as recommendations.
 
 REFERENCE

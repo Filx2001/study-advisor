@@ -12,6 +12,7 @@ export type Profile = {
   currency?: Currency;
   ielts?: number | "none"; // "none" = no IELTS / weak English
   wantsScholarship?: boolean;
+  seen?: string[]; // programme ids already shown to the student (maintained by the server)
   language: Language;
 };
 

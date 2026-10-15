@@ -20,6 +20,7 @@ export const MAX_CHOICES = 3;
 export const MAX_CHOICE_LENGTH = 20;
 export const MAX_RECOMMENDATIONS = 3;
 export const MAX_TEXT_LENGTH = 800;
+export const MAX_SEEN = 20;
 
 // ---------- Choices ----------
 
@@ -101,6 +102,11 @@ export function toCard(p: Program, lang: Language): ProgrammeCard {
     scholarship: p.scholarship,
     teachingLanguage: p.teaching_language,
   };
+}
+
+// Programme ids the student has already been shown (kept in the profile, newest last).
+export function mergeSeen(seen: string[] | undefined, ids: string[]): string[] {
+  return [...new Set([...(seen ?? []), ...ids])].slice(-MAX_SEEN);
 }
 
 // ---------- Text ----------
@@ -224,13 +230,15 @@ export function guardReply(
   }
 
   // The model searched this turn but forgot to attach any programmes:
-  // attach the best ones it actually found (real, and searched this turn).
+  // attach the best ones it actually found, ones the student hasn't seen first.
   if (!triedToRecommend && ctx.allowedIds.size > 0) {
-    recommended = filterRecommendations(
-      [...ctx.allowedIds],
-      ctx.allowedIds,
-      ctx.profile,
-    );
+    const seen = new Set(ctx.profile.seen ?? []);
+    const pool = [...ctx.allowedIds];
+    const newFirst = [
+      ...pool.filter((id) => !seen.has(id)),
+      ...pool.filter((id) => seen.has(id)),
+    ];
+    recommended = filterRecommendations(newFirst, ctx.allowedIds, ctx.profile);
   }
 
   // The text names an institution that isn't in the catalog: don't show it.
@@ -245,11 +253,23 @@ export function guardReply(
     choices = defaultChoices(ctx.profile);
   }
 
+  // Remember what the student has now seen, so "more options" can show something new.
+  const profile =
+    recommended.length > 0
+      ? {
+          ...ctx.profile,
+          seen: mergeSeen(
+            ctx.profile.seen,
+            recommended.map((p) => p.id),
+          ),
+        }
+      : ctx.profile;
+
   return {
     language: lang,
     text,
     choices,
     programmes: recommended.map((p) => toCard(p, lang)),
-    profile: ctx.profile,
+    profile,
   };
 }

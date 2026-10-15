@@ -5,6 +5,7 @@ import {
   searchCatalog,
   closestMatches,
   priceInQAR,
+  type ClosestMatch,
   type SearchFilters,
 } from "./search";
 import { FieldSchema, CurrencySchema } from "./schema";
@@ -56,6 +57,10 @@ export function createTools(ctx: TurnContext) {
       scholarship: p.scholarship,
     };
   };
+  const alternative = (c: ClosestMatch) => ({
+    ...summary(c.program),
+    doesNotFit: c.doesNotFit,
+  });
 
   return {
     saveFact: tool({
@@ -79,7 +84,8 @@ export function createTools(ctx: TurnContext) {
       description:
         "Search the official programme catalog — the ONLY source of programmes. " +
         "Only programmes returned here may be recommended. Budgets are compared after currency conversion. " +
-        "If nothing matches exactly, the result includes the closest real options.",
+        "Results the student has already seen are marked alreadyShown. When there are few new matches, " +
+        "alsoConsider lists the closest real alternatives.",
       inputSchema: SearchInputSchema,
       execute: async ({ noIelts, ielts, field, budgetCurrency, ...rest }) => {
         let fieldValue: Field | undefined;
@@ -116,27 +122,53 @@ export function createTools(ctx: TurnContext) {
           budgetCurrency: currencyValue,
           ielts: noIelts ? "none" : ielts,
         };
+        const seen = new Set(ctx.profile.seen ?? []);
+        const ranked = () => closestMatches(filters, 14);
 
         const results = searchCatalog(filters);
+        for (const p of results) ctx.allowedIds.add(p.id);
+
         if (results.length === 0) {
-          // Nothing fits exactly: offer the closest real programmes, and allow them to be recommended.
-          const closest = closestMatches(filters);
+          // Nothing fits exactly: offer the closest real programmes (new ones first) and allow them.
+          const all = ranked();
+          const unseen = all.filter((c) => !seen.has(c.program.id));
+          const closest = (unseen.length > 0 ? unseen : all).slice(0, 3);
           for (const c of closest) ctx.allowedIds.add(c.program.id);
           return {
             count: 0,
             programmes: [],
-            closest: closest.map((c) => ({
-              ...summary(c.program),
-              doesNotFit: c.doesNotFit,
-            })),
+            closest: closest.map(alternative),
             note:
               "No exact match. Recommend these closest real options (put their ids in recommendedIds) " +
               "and tell the student briefly what does not fit.",
           };
         }
 
-        for (const p of results) ctx.allowedIds.add(p.id);
-        return { count: results.length, programmes: results.map(summary) };
+        // Fewer than 3 matches the student hasn't seen: add the closest unseen alternatives.
+        const newMatches = results.filter((p) => !seen.has(p.id)).length;
+        const alsoConsider =
+          newMatches >= 3
+            ? []
+            : ranked()
+                .filter((c) => !seen.has(c.program.id))
+                .slice(0, 3 - newMatches);
+        for (const c of alsoConsider) ctx.allowedIds.add(c.program.id);
+
+        return {
+          count: results.length,
+          programmes: results.map((p) => ({
+            ...summary(p),
+            alreadyShown: seen.has(p.id),
+          })),
+          ...(alsoConsider.length > 0
+            ? {
+                alsoConsider: alsoConsider.map(alternative),
+                note:
+                  "Few new exact matches. If the student wants more or other options, recommend from alsoConsider " +
+                  "and say briefly what does not fit. Do not recommend alreadyShown programmes again unless asked about them.",
+              }
+            : {}),
+        };
       },
     }),
 

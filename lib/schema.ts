@@ -46,4 +46,8 @@ export const ProfileSchema = z.object({
   currency: CurrencySchema.optional(),
   ielts: z.union([z.number().min(0).max(9), z.literal("none")]).optional(),
   wantsScholarship: z.boolean().optional(),
+  seen: z
+    .array(z.string().regex(/^P\d{2}$/))
+    .max(20)
+    .optional(),
 });
